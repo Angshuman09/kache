@@ -1,84 +1,104 @@
-// phase-1
+// phase-2 implementing ttl
 use std::hash::Hash;
 use std::collections::HashMap;
+use std::time::{ Instant, Duration };
+use std::thread::sleep;
 
 #[derive(Debug)]
-struct Cache <K, V>{
-    storage: HashMap<K, V>
+struct CacheEntry<V> {
+    value: V,
+    created_at: Instant,
+    ttl: Duration,
 }
 
-impl <K,V> Cache<K, V>
-where K: Eq + Hash
-{
+impl<V> CacheEntry<V> {
+    fn is_expired(&self) -> bool {
+        self.created_at.elapsed() > self.ttl
+    }
+}
 
-    pub fn new() -> Self{
-        Cache{
-            storage: HashMap::new()
+#[derive(Debug)]
+struct Cache<K, V> {
+    storage: HashMap<K, CacheEntry<V>>,
+    default_ttl: Duration,
+}
+
+impl<K, V> Cache<K, V> where K: Eq + Hash {
+    pub fn new(default_seconds: u64) -> Self {
+        Cache {
+            storage: HashMap::new(),
+            default_ttl: Duration::from_secs(default_seconds),
         }
     }
-    
-    pub fn set(&mut self, key: K, value: V){
-        if self.storage.contains_key(&key){
-            self.storage.insert(key, value);
-            println!("Value updated");
+
+    pub fn set(&mut self, key: K, value: V, ttl: Option<Duration>) {
+        let expiration = ttl.unwrap_or(self.default_ttl);
+
+        let entry = CacheEntry {
+            value: value,
+            created_at: Instant::now(),
+            ttl: expiration,
+        };
+
+        self.storage.insert(key, entry);
+    }
+
+    pub fn get(&mut self, key: &K) -> Option<&V> {
+
+        let is_expired = if let Some(entry) = self.storage.get(key){
+            entry.is_expired()
         }else{
-        self.storage.insert(key, value);
+            return None;
+        };
+
+        if is_expired{
+            self.storage.remove(&key);
+            None
+        }else{
+            self.storage.get(&key).map(|entry| &entry.value)
         }
     }
 
-    pub fn get(&mut self, key:K)-> Option<&V>{
-        self.storage.get(&key)
-    }
-
-    pub fn delete(&mut self, key: K)-> Option<V>{
+    pub fn delete(&mut self, key: K) -> Option<CacheEntry<V>> {
         self.storage.remove(&key)
     }
 
-    pub fn exists(&mut self, key: K)-> bool{
-        self.storage.contains_key(&key)
+    pub fn exists(&mut self, key: &K) -> bool {
+        let expired = match self.storage.get(key){
+            Some(entry) => entry.is_expired(),
+            None => return false
+        };
+
+        if expired{
+            self.storage.remove(key);
+            return false;
+        }else{
+            return true;
+        }
     }
 
-    pub fn size(&self)->usize{
+    pub fn size(&self) -> usize {
         self.storage.len()
     }
-    pub fn clear(&mut self){
+    pub fn clear(&mut self) {
         self.storage.clear()
     }
 }
-fn main(){
+fn main() {
+    let mut kache = Cache::new(5);
 
-    let mut kache = Cache::new();
+    let short_ttl = Duration::from_secs(2);
+    kache.set("I", "love gooning", Some(short_ttl));
 
-    kache.set("name1", "Wamiqa");
-    kache.set("name2", "Angshu");
-    kache.set("name3", "lawde");
-    kache.set("name4", "bsdk");
-    kache.set("name5", "mkc");
+    println!("{:?}", kache.get(&"I"));
 
-    match kache.get("name1"){
-        Some(val) => println!("{:?}", val),
-        None => println!("Key not found")
+    sleep(Duration::from_secs(3));
+
+    match kache.get(&"temp_key"){
+        Some(val)=> println!("Still here: {}", val),
+        None=> println!("key is expired")
     }
 
-    println!("{}", kache.exists("name1"));
-    println!("{:?}", kache.size());
-
-    kache.delete("name1");
-    println!("{}", kache.exists("name1"));
-    println!("{:?}", kache.size());
-
-    match kache.get("name5"){
-        Some(val) => println!("{}", val),
-        None => println!("Value not found")
-    }
-    kache.set("name5", "kithe reh gaya");
-
-    match  kache.get("name5") {
-        Some(val)=> println!("{}", val),
-        None => println!("Value not found")
-    }
-
+    println!("{}",kache.size());
     kache.clear();
-
-    println!("{:?}", kache.size());
 }
