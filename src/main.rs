@@ -2,7 +2,20 @@
 use std::hash::Hash;
 use std::collections::HashMap;
 use std::time::{ Instant, Duration };
-use std::thread::sleep;
+// use std::thread::sleep;
+use std::io::{self, Write};
+
+pub const BANNER: &str = r#"
+$$\   $$\  $$$$$$\   $$$$$$\  $$\   $$\ $$$$$$$$\ 
+$$ | $$  |$$  __$$\ $$  __$$\ $$ |  $$ |$$  _____|
+$$ |$$  / $$ /  $$ |$$ /  \__|$$ |  $$ |$$ |      
+$$$$$  /  $$$$$$$$ |$$ |      $$$$$$$$ |$$$$$\    
+$$  $$<   $$  __$$ |$$ |      $$  __$$ |$$  __|   
+$$ |\$$\  $$ |  $$ |$$ |  $$\ $$ |  $$ |$$ |      
+$$ | \$$\ $$ |  $$ |\$$$$$$  |$$ |  $$ |$$$$$$$$\ 
+\__|  \__|\__|  \__| \______/ \__|  \__|\________|
+                                                                                          
+"#;
 
 #[derive(Debug)]
 struct CacheEntry<V> {
@@ -85,20 +98,41 @@ impl<K, V> Cache<K, V> where K: Eq + Hash {
     }
 }
 fn main() {
-    let mut kache = Cache::new(5);
+    // let mut kache = Cache::new(5);
+    let pink = "\x1b[38;2;255;182;193m"; 
+    let green = "\x1b[38;2;120;220;120m";
+    let dark_red = "\x1b[38;2;160;40;40m";
+    let purple = "\x1b[38;2;180;120;255m";
+    let reset = "\x1b[0m";
 
-    let short_ttl = Duration::from_secs(2);
-    kache.set("I", "love gooning", Some(short_ttl));
+    println!("{}{}{}",pink, BANNER, reset);
+    println!("{} Commands: SET <key> <val>, GET <key>, DELETE <key>, EXISTS <key>, SIZE, EXIT", green);
 
-    println!("{:?}", kache.get(&"I"));
+    loop{
+        print!("{}>", purple);
+        io::stdout().flush().unwrap();
 
-    sleep(Duration::from_secs(3));
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Failed to read line");
 
-    match kache.get(&"temp_key"){
-        Some(val)=> println!("Still here: {}", val),
-        None=> println!("key is expired")
+        let parts: Vec<&str> = input.trim().split_whitespace().collect();
+
+        println!("{:?}", parts);
+        break;
     }
 
-    println!("{}",kache.size());
-    kache.clear();
+    // let short_ttl = Duration::from_secs(2);
+    // kache.set("I", "love gooning", Some(short_ttl));
+
+    // println!("{:?}", kache.get(&"I"));
+
+    // sleep(Duration::from_secs(3));
+
+    // match kache.get(&"temp_key"){
+    //     Some(val)=> println!("Still here: {}", val),
+    //     None=> println!("key is expired")
+    // }
+
+    // println!("{}",kache.size());
+    // kache.clear();
 }
