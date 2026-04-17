@@ -1,11 +1,12 @@
-// phase-2 implementing ttl
-use std::hash::Hash;
-use std::collections::HashMap;
+mod cache;
+mod parser;
+use cache::Cache;
+use parser::parser_input;
 use std::time::{ Instant, Duration };
-// use std::thread::sleep;
-use std::io::{self, Write};
+use std::io::{ self, Write };
 
-pub const BANNER: &str = r#"
+pub const BANNER: &str =
+    r#"
 $$\   $$\  $$$$$$\   $$$$$$\  $$\   $$\ $$$$$$$$\ 
 $$ | $$  |$$  __$$\ $$  __$$\ $$ |  $$ |$$  _____|
 $$ |$$  / $$ /  $$ |$$ /  \__|$$ |  $$ |$$ |      
@@ -17,122 +18,101 @@ $$ | \$$\ $$ |  $$ |\$$$$$$  |$$ |  $$ |$$$$$$$$\
                                                                                           
 "#;
 
-#[derive(Debug)]
-struct CacheEntry<V> {
-    value: V,
-    created_at: Instant,
-    ttl: Duration,
-}
 
-impl<V> CacheEntry<V> {
-    fn is_expired(&self) -> bool {
-        self.created_at.elapsed() > self.ttl
-    }
-}
-
-#[derive(Debug)]
-struct Cache<K, V> {
-    storage: HashMap<K, CacheEntry<V>>,
-    default_ttl: Duration,
-}
-
-impl<K, V> Cache<K, V> where K: Eq + Hash {
-    pub fn new(default_seconds: u64) -> Self {
-        Cache {
-            storage: HashMap::new(),
-            default_ttl: Duration::from_secs(default_seconds),
-        }
-    }
-
-    pub fn set(&mut self, key: K, value: V, ttl: Option<Duration>) {
-        let expiration = ttl.unwrap_or(self.default_ttl);
-
-        let entry = CacheEntry {
-            value: value,
-            created_at: Instant::now(),
-            ttl: expiration,
-        };
-
-        self.storage.insert(key, entry);
-    }
-
-    pub fn get(&mut self, key: &K) -> Option<&V> {
-
-        let is_expired = if let Some(entry) = self.storage.get(key){
-            entry.is_expired()
-        }else{
-            return None;
-        };
-
-        if is_expired{
-            self.storage.remove(&key);
-            None
-        }else{
-            self.storage.get(&key).map(|entry| &entry.value)
-        }
-    }
-
-    pub fn delete(&mut self, key: K) -> Option<CacheEntry<V>> {
-        self.storage.remove(&key)
-    }
-
-    pub fn exists(&mut self, key: &K) -> bool {
-        let expired = match self.storage.get(key){
-            Some(entry) => entry.is_expired(),
-            None => return false
-        };
-
-        if expired{
-            self.storage.remove(key);
-            return false;
-        }else{
-            return true;
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        self.storage.len()
-    }
-    pub fn clear(&mut self) {
-        self.storage.clear()
-    }
-}
 fn main() {
-    // let mut kache = Cache::new(5);
-    let pink = "\x1b[38;2;255;182;193m"; 
+    let mut kache = Cache::new(30);
+    let pink = "\x1b[38;2;255;182;193m";
     let green = "\x1b[38;2;120;220;120m";
-    let dark_red = "\x1b[38;2;160;40;40m";
+    // let dark_red = "\x1b[38;2;160;40;40m";
     let purple = "\x1b[38;2;180;120;255m";
     let reset = "\x1b[0m";
 
-    println!("{}{}{}",pink, BANNER, reset);
+    println!("{}{}{}", pink, BANNER, reset);
     println!("{} Commands: SET <key> <val>, GET <key>, DELETE <key>, EXISTS <key>, SIZE, EXIT", green);
 
-    loop{
+    loop {
         print!("{}>", purple);
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).expect("Failed to read line");
 
-        let parts: Vec<&str> = input.trim().split_whitespace().collect();
+        parser_input(&input);
+
+        let parts: Vec<String> = parser_input(&input);
 
         println!("{:?}", parts);
-        break;
+
+        if parts.is_empty() {
+            continue;
+        }
+
+        let command = parts[0].to_uppercase();
+
+        match command.as_str() {
+            "SET" => {
+                if parts.len() < 3 {
+                    println!("(error) ERR wrong number of arguments for 'set' command");
+                }
+                if parts.len() == 3 {
+                    kache.set(parts[1].to_string(), parts[2].to_string(), None);
+                    println!("OK");
+                } else {
+                    println!("ERR: Usage: SET <key> <value>");
+                }
+            }
+
+            "GET" => {
+                if parts.len() < 2 {
+                    println!("(error) ERR wrong number of arguments for 'get' command");
+                }
+                if let Some(key) = parts.get(1) {
+                    match kache.get(&key.to_string()) {
+                        Some(val) => println!("{}", val),
+                        None => println!("there is no such value exists"),
+                    }
+                }
+            }
+
+            "DELETE" => {
+                if parts.len() < 2 {
+                    println!("(error) ERR wrong number of arguments for 'delete' command");
+                }
+                if let Some(key) = parts.get(1) {
+                    kache.delete(&key.to_string());
+                    println!("Ok");
+                }
+            }
+
+            "EXISTS" => {
+                if parts.len() < 2 {
+                    println!("(error) ERR wrong number of arguments for 'exists' command");
+                }
+                if let Some(key) = parts.get(1) {
+                    println!("{}", kache.exists(&key.to_string()));
+                }
+            }
+
+            "SIZE" => {
+                println!("{}", kache.size());
+            }
+
+            "CLEAN" =>{
+               let remove_ele = kache.cleanup();
+
+               println!("element removed: {}", remove_ele);
+            }
+
+            "CLEAR"=>{
+                kache.clear();
+            }
+
+            "EXIT" => {
+                println!("Byyy!");
+                break;
+            }
+
+            _ => println!("ERR: Unknown command '{}'", command),
+        }
     }
-
-    // let short_ttl = Duration::from_secs(2);
-    // kache.set("I", "love gooning", Some(short_ttl));
-
-    // println!("{:?}", kache.get(&"I"));
-
-    // sleep(Duration::from_secs(3));
-
-    // match kache.get(&"temp_key"){
-    //     Some(val)=> println!("Still here: {}", val),
-    //     None=> println!("key is expired")
-    // }
-
-    // println!("{}",kache.size());
-    // kache.clear();
 }
