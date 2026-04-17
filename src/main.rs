@@ -2,7 +2,6 @@ mod cache;
 mod parser;
 use cache::Cache;
 use parser::parser_input;
-use std::time::{ Instant, Duration };
 use std::io::{ self, Write };
 
 pub const BANNER: &str =
@@ -18,20 +17,19 @@ $$ | \$$\ $$ |  $$ |\$$$$$$  |$$ |  $$ |$$$$$$$$\
                                                                                           
 "#;
 
-
 fn main() {
     let mut kache = Cache::new(30);
     let pink = "\x1b[38;2;255;182;193m";
-    let green = "\x1b[38;2;120;220;120m";
+    // let green = "\x1b[38;2;120;220;120m";
     // let dark_red = "\x1b[38;2;160;40;40m";
     let purple = "\x1b[38;2;180;120;255m";
     let reset = "\x1b[0m";
 
     println!("{}{}{}", pink, BANNER, reset);
-    println!("{} Commands: SET <key> <val>, GET <key>, DELETE <key>, EXISTS <key>, SIZE, EXIT", green);
+    println!("{} Kache : in-memory cache system", pink);
 
     loop {
-        print!("{}>", purple);
+        print!("{}kache > ", purple);
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -41,7 +39,7 @@ fn main() {
 
         let parts: Vec<String> = parser_input(&input);
 
-        println!("{:?}", parts);
+        // println!("{:?}", parts);
 
         if parts.is_empty() {
             continue;
@@ -52,67 +50,67 @@ fn main() {
         match command.as_str() {
             "SET" => {
                 if parts.len() < 3 {
-                    println!("(error) ERR wrong number of arguments for 'set' command");
+                    println!("{}(error) ERR wrong number of arguments for 'set' command", pink);
                 }
                 if parts.len() == 3 {
                     kache.set(parts[1].to_string(), parts[2].to_string(), None);
-                    println!("OK");
+                    println!("{}OK", pink);
                 } else {
-                    println!("ERR: Usage: SET <key> <value>");
+                    println!("{}ERR: Usage: SET <key> <value>", pink);
                 }
             }
 
             "GET" => {
                 if parts.len() < 2 {
-                    println!("(error) ERR wrong number of arguments for 'get' command");
+                    println!("{}(error) ERR wrong number of arguments for 'get' command", pink);
                 }
                 if let Some(key) = parts.get(1) {
                     match kache.get(&key.to_string()) {
-                        Some(val) => println!("{}", val),
-                        None => println!("there is no such value exists"),
+                        Some(val) => println!("{}{}",pink, val),
+                        None => println!("{}there is no such value exists",pink),
                     }
                 }
             }
 
             "DELETE" => {
                 if parts.len() < 2 {
-                    println!("(error) ERR wrong number of arguments for 'delete' command");
+                    println!("{}(error) ERR wrong number of arguments for 'delete' command",pink);
                 }
                 if let Some(key) = parts.get(1) {
                     kache.delete(&key.to_string());
-                    println!("Ok");
+                    println!("{}Ok", pink);
                 }
             }
 
             "EXISTS" => {
                 if parts.len() < 2 {
-                    println!("(error) ERR wrong number of arguments for 'exists' command");
+                    println!("{}(error) ERR wrong number of arguments for 'exists' command",pink);
                 }
                 if let Some(key) = parts.get(1) {
-                    println!("{}", kache.exists(&key.to_string()));
+                    println!("{}{}",pink, kache.exists(&key.to_string()));
                 }
             }
 
             "SIZE" => {
-                println!("{}", kache.size());
+                println!("{}{}",pink, kache.size());
             }
 
-            "CLEAN" =>{
-               let remove_ele = kache.cleanup();
+            "CLEAN" => {
+                let remove_ele = kache.cleanup();
 
-               println!("element removed: {}", remove_ele);
+                println!("{}element removed: {}",pink, remove_ele);
             }
 
-            "CLEAR"=>{
+            "CLEAR" => {
                 kache.clear();
             }
 
             "EXIT" => {
-                println!("Byyy!");
+                println!("{}Byyy!",pink);
                 break;
             }
 
-            _ => println!("ERR: Unknown command '{}'", command),
+            _ => println!("{}ERR: Unknown command '{}'",pink, command),
         }
     }
 }
