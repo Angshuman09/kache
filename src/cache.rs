@@ -1,3 +1,4 @@
+// use std::collections::hash_map::Entry;
 use std::hash::Hash;
 use std::collections::HashMap;
 use std::time::{ Instant, Duration };
@@ -7,6 +8,7 @@ struct CacheEntry<V> {
     value: V,
     created_at: Instant,
     ttl: Duration,
+    last_accessed: Instant
 }
 
 impl<V> CacheEntry<V> {
@@ -19,23 +21,30 @@ impl<V> CacheEntry<V> {
 pub struct Cache<K, V> {
     storage: HashMap<K, CacheEntry<V>>,
     default_ttl: Duration,
+    capacity: usize
 }
 
-impl<K, V> Cache<K, V> where K: Eq + Hash {
-    pub fn new(default_seconds: u64) -> Self {
+impl<K, V> Cache<K, V> where K: Eq + Hash + Clone {
+    pub fn new(default_seconds: u64, capacity: usize) -> Self {
         Cache {
             storage: HashMap::new(),
             default_ttl: Duration::from_secs(default_seconds),
+            capacity
         }
     }
 
     pub fn set(&mut self, key: K, value: V, ttl: Option<Duration>) {
+        if self.storage.len() >= self.capacity && !self.storage.contains_key(&key){
+            self.evict_oldest();
+        }
+
         let expiration = ttl.unwrap_or(self.default_ttl);
 
         let entry = CacheEntry {
             value: value,
             created_at: Instant::now(),
             ttl: expiration,
+            last_accessed: Instant::now()
         };
 
         self.storage.insert(key, entry);
@@ -52,7 +61,9 @@ impl<K, V> Cache<K, V> where K: Eq + Hash {
             self.storage.remove(&key);
             None
         } else {
-            self.storage.get(&key).map(|entry| &entry.value)
+            let entry = self.storage.get_mut(key).unwrap();
+            entry.last_accessed = Instant::now();
+            Some(&entry.value)
         }
     }
 
@@ -73,6 +84,22 @@ impl<K, V> Cache<K, V> where K: Eq + Hash {
             return false;
         } else {
             return true;
+        }
+    }
+
+    fn evict_oldest(&mut self){
+        let mut oldest_key: Option<K> = None;
+        let mut oldest_time = Instant::now();
+
+        for (key, entry) in self.storage.iter(){
+            if entry.last_accessed < oldest_time{
+                oldest_time = entry.last_accessed;
+                oldest_key = Some(key.clone());
+            }
+        }
+
+        if let Some(key) = oldest_key{
+            self.storage.remove(&key);
         }
     }
 

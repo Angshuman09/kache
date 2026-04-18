@@ -18,7 +18,7 @@ $$ | \$$\ $$ |  $$ |\$$$$$$  |$$ |  $$ |$$$$$$$$\
 "#;
 
 fn main() {
-    let mut kache = Cache::new(30);
+    let mut kache = Cache::new(30, 3);
     let pink = "\x1b[38;2;255;182;193m";
     // let green = "\x1b[38;2;120;220;120m";
     // let dark_red = "\x1b[38;2;160;40;40m";
