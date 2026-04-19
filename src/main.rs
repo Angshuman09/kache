@@ -14,7 +14,7 @@ fn main() {
 
     let kache = Arc::new(Mutex::new(Cache::new(30, 3)));
 
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
     println!("Server listening on the port 7878..");
 
     for stream in listener.incoming(){

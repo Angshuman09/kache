@@ -29,6 +29,12 @@ Kache is a simple in-memory cache system built to understand how real-world cach
 
 ---
 
+## Architecture
+
+![](./public/architecture.png)
+
+---
+
 ## Setup
  
 ```bash
