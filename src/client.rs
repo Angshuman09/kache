@@ -1,5 +1,5 @@
 use std::{ io::{ Read, Write }, net::TcpStream, sync::{ Arc, Mutex } };
-use crate::{ cache::Cache, parser::parser_input };
+use crate::{ aof::log_command_to_disk, cache::Cache, parser::parser_input };
 
 pub const BANNER: &str =
     r#"
@@ -67,6 +67,8 @@ pub fn handle_client(mut stream: TcpStream, kache: Arc<Mutex<Cache<String, Strin
             "SET" => {
                 if parts.len() == 3 {
                     cache.set(parts[1].to_string(), parts[2].to_string(), None);
+                    let log_str = format!("SET {} {}\n", parts[1], parts[2]);
+                    log_command_to_disk(&log_str);
                     response = "OK\n".to_string();
                 } else {
                     response = "ERR wrong number of arguments for 'set'\n".to_string();
@@ -89,8 +91,10 @@ pub fn handle_client(mut stream: TcpStream, kache: Arc<Mutex<Cache<String, Strin
             }
 
             "DELETE" => {
-                if parts.len() == 2 {
-                    cache.delete(&parts[1]);
+                if let Some(key) = parts.get(1) {
+                    cache.delete(key);
+                    let log_str = format!("DELETE {}\n", key);
+                    log_command_to_disk(&log_str);
                     response = "OK\n".to_string();
                 }
             }
